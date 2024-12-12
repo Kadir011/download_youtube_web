@@ -1,0 +1,109 @@
+/* Fondo y texto general */
+body {
+    background-color: #f8f9fa;
+    color: #333;
+    font-family: 'Arial', sans-serif;
+}
+
+/* Títulos */
+h1, h2 {
+    color: #007bff;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+/* Formulario */
+form {
+    margin: 0 auto;
+    padding: 20px;
+    background: #ffffff;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 500px;  /* Limitar el ancho máximo */
+}
+
+/* Alertas */
+.alert {
+    font-size: 1.1rem;
+    margin-top: 20px;
+    padding: 10px;
+    text-align: center;
+    border-radius: 5px;
+}
+
+/* Botones */
+button {
+    padding: 10px;
+    font-size: 1rem;
+    border-radius: 5px;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+/* Botón de descarga de video */
+button[type="submit"].btn-primary {
+    background-color: #007bff;
+    color: #fff;
+}
+
+button[type="submit"].btn-primary:hover {
+    background-color: #0056b3;
+}
+
+/* Botón de descarga MP3 */
+button[type="submit"].btn-success {
+    background-color: #28a745;
+    color: #fff;
+}
+
+button[type="submit"].btn-success:hover {
+    background-color: #218838;
+}
+
+/* Barra de navegación */
+.navbar-brand {
+    font-weight: bold;
+    font-size: 1.5rem;
+}
+
+/* Ajustes de margen y padding en el body */
+.container {
+    margin-top: 50px;
+}
+
+/* Formulario input */
+input[type="url"] {
+    width: 100%;
+    padding: 10px;
+    font-size: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+input[type="url"]:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+}
+
+/* Mejorar el diseño para pantallas pequeñas */
+@media (max-width: 576px) {
+    form {
+        padding: 15px;
+    }
+
+    button {
+        font-size: 0.9rem;
+    }
+}
+
+
+
+
+
+
+
+
