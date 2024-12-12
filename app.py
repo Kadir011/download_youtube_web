@@ -1,10 +1,10 @@
-import os 
-import secrets 
-from flask import Flask, render_template, redirect, url_for, flash, request 
-from yt_dlp import YoutubeDL 
+import os
+from flask import Flask, render_template, redirect, url_for, flash, request
+from yt_dlp import YoutubeDL
+from server import Config
 
-app = Flask(__name__) 
-app.secret_key = secrets.token_hex(32) 
+app = Flask(__name__)
+app.config.from_object(Config)
 
 # Carpeta de descargas
 DOWNLOAD_FOLDER = os.path.join(os.getcwd(), 'download')
@@ -74,6 +74,6 @@ def download_mp3():
     return render_template('download_mp3.html')
 
 if __name__ == '__main__':
-    app.run(debug=True) 
+    app.run(host=Config.HOST, port=Config.PORT, debug=Config.DEBUG) 
 
 
