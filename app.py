@@ -15,6 +15,14 @@ def download_video_yt_dlp(url, output_path):
     options = {
         'format': 'bestvideo+bestaudio',
         'outtmpl': f"{output_path}/%(title)s.%(ext)s",
+        #asegurar que sea mp4, que tenga sonido y que tenga calidad de video
+        'postprocessors': [{
+            'key': 'FFmpegVideoConvertor',
+            'preferedformat': 'mp4',
+            'preferredcodec': 'mp4',
+            'maxheight': 720,
+            'maxwidth': 1280,
+        }],
     }
     with YoutubeDL(options) as ydl:
         info = ydl.extract_info(url, download=True)
@@ -24,7 +32,7 @@ def download_video_yt_dlp(url, output_path):
 def download_audio_yt_dlp(url, output_path):
     options = {
         'format': 'bestaudio/best',
-        'outtmpl': f"{output_path}/%(title)s.mp3",
+        'outtmpl': f"{output_path}/%(title)s.%(ext)s",
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': 'mp3',
@@ -73,6 +81,8 @@ def download_mp3():
 
 if __name__ == '__main__':
     app.run(debug=True) 
+
+
 
 
 
