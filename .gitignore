@@ -1,0 +1,49 @@
+# Ignore los archivos de configuración de virtualenv
+venv/
+
+# Ignore los archivos de configuración de PyCharm
+.idea/
+
+# Ignore los archivos de configuración de VSCode
+.vscode/
+
+# Ignore los archivos de configuración de Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Ignore los archivos de configuración de Git
+.git/
+
+# Ignore los archivos de configuración de Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Ignore los archivos de configuración de archivos de imagen
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.ico
+
+# Ignore los archivos de configuración de archivos de audio
+*.mp3
+*.wav
+*.ogg
+*.flac
+
+# Ignore los archivos de configuración de archivos de video
+*.mp4
+*.mov
+*.avi
+*.wmv
+*.flv
+*.webm
+
+# Ignore la carpeta "download" para almacenar los archivos descargados
+download/
+
+
+
+
+
