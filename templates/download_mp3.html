@@ -39,8 +39,10 @@
 </div>
 {% if download_ready %}
 <script>
-    // Iniciar descarga automáticamente
-    window.location.href = "{{ download_url }}";
+    // Pequeño retraso para asegurar que la UI y el tema carguen antes de la descarga
+    setTimeout(function() {
+        window.location.href = "{{ download_url }}";
+    }, 1000);
 </script>
 {% endif %}
 {% endblock %}
