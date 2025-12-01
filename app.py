@@ -11,6 +11,14 @@ app.config.from_object(Config)
 DOWNLOAD_FOLDER = os.path.join(os.getcwd(), 'download')
 os.makedirs(DOWNLOAD_FOLDER, exist_ok=True)
 
+# Configurar ruta de FFmpeg (ajusta según tu instalación)
+FFMPEG_PATH = r'C:\ffmpeg\ffmpeg-8.0.1-essentials_build\bin\ffmpeg.exe'
+FFPROBE_PATH = r'C:\ffmpeg\ffmpeg-8.0.1-essentials_build\bin\ffprobe.exe'
+
+if os.path.exists(FFMPEG_PATH):
+    os.environ['FFMPEG_BINARY'] = FFMPEG_PATH
+    os.environ['FFPROBE_BINARY'] = FFPROBE_PATH
+
 # --- LÓGICA DE CAPTCHA ---
 def generate_captcha():
     num1 = random.randint(1, 10)
@@ -31,19 +39,14 @@ def get_common_options(output_path):
     """Opciones comunes para yt-dlp"""
     return {
         'outtmpl': f"{output_path}/%(title)s.%(ext)s",
-        'writethumbnail': True,  # Descargar la imagen
+        'writethumbnail': True,
         'nocheckcertificate': True,
         'ignoreerrors': False,
         'no_warnings': False,
         'quiet': False,
-        'extract_flat': False,
-        'skip_download': False,
         'noplaylist': True,
         'geo_bypass': True,
-        # Importante: No mantener el video original si es una conversión
-        'keepvideo': False, 
-        'overwrites': True,
-        # Opciones anti-bloqueo
+        'prefer_ffmpeg': True,
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -56,30 +59,49 @@ def get_common_options(output_path):
 def download_video_yt_dlp(url, output_path):
     options = get_common_options(output_path)
     
-    # Configuración específica para MP4
+    # Configuración específica para MP4 con portada incrustada
     options.update({
         'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
         'merge_output_format': 'mp4',
+        'writethumbnail': True,
         'postprocessors': [
             {
-                'key': 'EmbedThumbnail', # Incrustar portada
+                'key': 'FFmpegThumbnailsConvertor',
+                'format': 'jpg',
             },
             {
-                'key': 'FFmpegMetadata', # Añadir metadatos
+                'key': 'EmbedThumbnail',
+            },
+            {
+                'key': 'FFmpegMetadata',
             }
         ],
     })
 
     with YoutubeDL(options) as ydl:
         info = ydl.extract_info(url, download=True)
-        return info.get('title', 'Título desconocido') 
+        title = info.get('title', 'Título desconocido')
+        
+        # Limpiar archivos de miniaturas después de la descarga
+        try:
+            base_name = os.path.join(output_path, title)
+            for ext in ['.webp', '.jpg', '.png']:
+                thumb_file = base_name + ext
+                if os.path.exists(thumb_file):
+                    os.remove(thumb_file)
+                    print(f"Miniatura eliminada: {thumb_file}")
+        except Exception as e:
+            print(f"No se pudo eliminar miniatura: {e}")
+        
+        return title 
 
 def download_audio_yt_dlp(url, output_path):
     options = get_common_options(output_path)
     
-    # Configuración específica para MP3
+    # Configuración específica para MP3 con portada incrustada
     options.update({
         'format': 'bestaudio/best',
+        'writethumbnail': True,
         'postprocessors': [
             {
                 'key': 'FFmpegExtractAudio',
@@ -87,17 +109,42 @@ def download_audio_yt_dlp(url, output_path):
                 'preferredquality': '192',
             },
             {
-                'key': 'EmbedThumbnail', # Incrustar portada en el MP3
+                'key': 'FFmpegThumbnailsConvertor',
+                'format': 'jpg',
             },
             {
-                'key': 'FFmpegMetadata', # Añadir metadatos (Titulo, Artista)
+                'key': 'EmbedThumbnail',
+            },
+            {
+                'key': 'FFmpegMetadata',
             }
         ],
     })
     
     with YoutubeDL(options) as ydl:
         info = ydl.extract_info(url, download=True)
-        return info.get('title', 'Título desconocido') 
+        title = info.get('title', 'Título desconocido')
+        
+        # Limpiar archivos de miniaturas y temporales después de la descarga
+        try:
+            base_name = os.path.join(output_path, title)
+            # Eliminar miniaturas
+            for ext in ['.webp', '.jpg', '.png']:
+                thumb_file = base_name + ext
+                if os.path.exists(thumb_file):
+                    os.remove(thumb_file)
+                    print(f"Miniatura eliminada: {thumb_file}")
+            
+            # Eliminar archivo webm si existe
+            webm_file = base_name + '.webm'
+            if os.path.exists(webm_file):
+                os.remove(webm_file)
+                print(f"Archivo temporal eliminado: {webm_file}")
+                
+        except Exception as e:
+            print(f"No se pudo eliminar archivos temporales: {e}")
+        
+        return title
 
 @app.route('/')
 def index():
@@ -122,7 +169,7 @@ def download_mp4():
             
         try:
             title = download_video_yt_dlp(url, DOWNLOAD_FOLDER)
-            flash(f"Video '{title}' descargado exitosamente.", "success")
+            flash(f"Video '{title}' descargado exitosamente con portada incrustada.", "success")
         except Exception as e:
             flash(f"Error: {str(e)}", "danger")
             print(f"DEBUG ERROR: {e}")
@@ -149,7 +196,7 @@ def download_mp3():
             
         try:
             title = download_audio_yt_dlp(url, DOWNLOAD_FOLDER)
-            flash(f"Audio '{title}' descargado exitosamente.", "success")
+            flash(f"Audio '{title}' descargado exitosamente con portada incrustada.", "success")
         except Exception as e:
             flash(f"Error: {str(e)}", "danger")
             print(f"DEBUG ERROR: {e}")
