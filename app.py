@@ -28,8 +28,10 @@ def validate_captcha(user_answer):
 # -------------------------
 
 def get_common_options(output_path):
-    """Opciones comunes para yt-dlp para evitar repetición de código"""
+    """Opciones comunes para yt-dlp"""
     return {
+        # 'restrictfilenames': True es CRUCIAL para evitar errores en Windows con nombres largos/raros
+        'restrictfilenames': True,
         'outtmpl': f"{output_path}/%(title)s.%(ext)s",
         'writethumbnail': True,
         'nocheckcertificate': True,
@@ -40,6 +42,8 @@ def get_common_options(output_path):
         'skip_download': False,
         'noplaylist': True,
         'geo_bypass': True,
+        'overwrites': True,
+        # Opciones anti-bloqueo
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -51,32 +55,61 @@ def get_common_options(output_path):
 
 def download_video_yt_dlp(url, output_path):
     options = get_common_options(output_path)
+    
+    # Configuración para MP4
     options.update({
-        'format': 'bestvideo[height<=1080]+bestaudio/best[height<=1080]',
+        'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
         'merge_output_format': 'mp4',
         'postprocessors': [
-            {'key': 'EmbedThumbnail'},
-            {'key': 'FFmpegMetadata'}
+            # 1. Convertir miniatura a JPG primero (compatibilidad total)
+            {
+                'key': 'FFmpegThumbnailsConvertor',
+                'format': 'jpg',
+            },
+            # 2. Incrustar la miniatura ya convertida
+            {
+                'key': 'EmbedThumbnail',
+            },
+            # 3. Añadir metadatos
+            {
+                'key': 'FFmpegMetadata',
+            }
         ],
     })
+
     with YoutubeDL(options) as ydl:
         info = ydl.extract_info(url, download=True)
         return info.get('title', 'Título desconocido') 
 
 def download_audio_yt_dlp(url, output_path):
     options = get_common_options(output_path)
+    
+    # Configuración para MP3
     options.update({
         'format': 'bestaudio/best',
         'postprocessors': [
+            # 1. Convertir la miniatura a JPG ANTES de procesar el audio
+            {
+                'key': 'FFmpegThumbnailsConvertor',
+                'format': 'jpg',
+            },
+            # 2. Extraer audio y convertir a MP3
             {
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
                 'preferredquality': '192',
             },
-            {'key': 'EmbedThumbnail'},
-            {'key': 'FFmpegMetadata'}
+            # 3. Incrustar la miniatura (JPG) en el MP3
+            {
+                'key': 'EmbedThumbnail',
+            },
+            # 4. Metadatos finales
+            {
+                'key': 'FFmpegMetadata',
+            }
         ],
     })
+    
     with YoutubeDL(options) as ydl:
         info = ydl.extract_info(url, download=True)
         return info.get('title', 'Título desconocido') 
@@ -98,17 +131,18 @@ def download_mp4():
             flash("Por favor, ingresa una URL válida.", "danger")
             return redirect(url_for('download_mp4'))
         
-        # Limpieza básica de URL
+        # Limpieza de URL
         if '&list=' in url: url = url.split('&list=')[0]
+        if '?list=' in url: url = url.split('?list=')[0]
             
         try:
             title = download_video_yt_dlp(url, DOWNLOAD_FOLDER)
-            flash(f"Video '{title}' descargado exitosamente.", "success")
+            flash(f"Video '{title}' descargado exitosamente con portada.", "success")
         except Exception as e:
             flash(f"Error: {str(e)}", "danger")
+            print(f"DEBUG ERROR: {e}")
         return redirect(url_for('download_mp4'))
     
-    # GET: Generar nuevo captcha
     captcha_question = generate_captcha()
     return render_template('download_mp4.html', captcha_question=captcha_question)
 
@@ -126,12 +160,14 @@ def download_mp3():
             return redirect(url_for('download_mp3'))
         
         if '&list=' in url: url = url.split('&list=')[0]
+        if '?list=' in url: url = url.split('?list=')[0]
             
         try:
             title = download_audio_yt_dlp(url, DOWNLOAD_FOLDER)
-            flash(f"Audio '{title}' descargado exitosamente.", "success")
+            flash(f"Audio '{title}' descargado exitosamente con portada.", "success")
         except Exception as e:
             flash(f"Error: {str(e)}", "danger")
+            print(f"DEBUG ERROR: {e}")
         return redirect(url_for('download_mp3'))
     
     captcha_question = generate_captcha()
