@@ -11,7 +11,7 @@ else:  # Linux/Mac (Render usa Linux)
     FFMPEG_PATH = 'ffmpeg'
 
 def get_common_options(output_path):
-    """Opciones base para yt-dlp con configuración anti-bloqueo"""
+    """Opciones base optimizadas para entornos Cloud (Render)"""
     return {
         'restrictfilenames': True,
         'outtmpl': f"{output_path}/%(title)s.%(ext)s",
@@ -21,42 +21,21 @@ def get_common_options(output_path):
         'quiet': False,
         'noplaylist': True,
         'geo_bypass': True,
-        'prefer_ffmpeg': True,
         'ffmpeg_location': FFMPEG_PATH,
         
-        # Configuración anti-bot mejorada
+        # --- ESTRATEGIA ANTI-BLOQUEO (iOS) ---
+        # Usamos el cliente de API de iOS. 
+        # YouTube suele permitir más tráfico de IPs de servidores si 'piensa' que es una app móvil.
         'extractor_args': {
             'youtube': {
-                'player_client': ['android', 'web'],
+                'player_client': ['ios'],
                 'player_skip': ['webpage', 'configs'],
             }
         },
         
-        # User agent actualizado
-        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-        
-        # Headers HTTP mejorados
-        'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'DNT': '1',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'none',
-            'Sec-Fetch-User': '?1',
-            'Cache-Control': 'max-age=0',
-        },
-        
-        # Configuración adicional para evitar bloqueos
-        'sleep_interval': 1,
-        'max_sleep_interval': 5,
-        'sleep_interval_requests': 1,
-        'age_limit': None,
-        'extract_flat': False,
+        # IMPORTANTE: No definimos 'user_agent' ni 'http_headers' manuales.
+        # Dejamos que yt-dlp asigne los headers correctos para iOS automáticamente.
+        # Si forzamos headers de Chrome en Windows pero usamos el cliente iOS, YouTube detecta la mentira y bloquea.
     }
 
 def embed_thumbnail_manually(media_file, thumbnail_file, is_audio=True):
