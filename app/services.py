@@ -11,7 +11,7 @@ else:  # Linux/Mac (Render usa Linux)
     FFMPEG_PATH = 'ffmpeg'
 
 def get_common_options(output_path):
-    """Opciones base para yt-dlp"""
+    """Opciones base para yt-dlp con configuración anti-bloqueo"""
     return {
         'restrictfilenames': True,
         'outtmpl': f"{output_path}/%(title)s.%(ext)s",
@@ -23,13 +23,40 @@ def get_common_options(output_path):
         'geo_bypass': True,
         'prefer_ffmpeg': True,
         'ffmpeg_location': FFMPEG_PATH,
-        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-us,en;q=0.5',
-            'Sec-Fetch-Mode': 'navigate',
+        
+        # Configuración anti-bot mejorada
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android', 'web'],
+                'player_skip': ['webpage', 'configs'],
+            }
         },
+        
+        # User agent actualizado
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        
+        # Headers HTTP mejorados
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'Cache-Control': 'max-age=0',
+        },
+        
+        # Configuración adicional para evitar bloqueos
+        'sleep_interval': 1,
+        'max_sleep_interval': 5,
+        'sleep_interval_requests': 1,
+        'age_limit': None,
+        'extract_flat': False,
     }
 
 def embed_thumbnail_manually(media_file, thumbnail_file, is_audio=True):
@@ -81,7 +108,8 @@ def process_download(url, output_path, is_audio=False):
         options['format'] = 'bestaudio/best'
         options['postprocessors'] = [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': '192'}]
     else:
-        options['format'] = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best'
+        # Formato más permisivo para video
+        options['format'] = 'best[ext=mp4]/best'
         options['merge_output_format'] = 'mp4'
 
     with YoutubeDL(options) as ydl:
