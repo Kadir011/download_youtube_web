@@ -2,6 +2,7 @@ import os
 import random
 import subprocess
 import threading
+import uuid
 from flask import Flask, render_template, redirect, url_for, flash, request, session, send_file
 from yt_dlp import YoutubeDL
 from server import Config
@@ -9,9 +10,12 @@ from server import Config
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# Carpeta de descargas temporal
-DOWNLOAD_FOLDER = os.path.join(os.getcwd(), 'download')
-os.makedirs(DOWNLOAD_FOLDER, exist_ok=True)
+# Carpeta temporal del servidor (solo para procesar archivos antes de enviarlos al usuario)
+TEMP_FOLDER = os.path.join(os.getcwd(), 'temp')
+os.makedirs(TEMP_FOLDER, exist_ok=True)
+
+# Diccionario temporal para almacenar rutas de descarga
+download_files = {}
 
 # Configurar ruta de FFmpeg (detecta automáticamente en producción)
 if os.name == 'nt':  # Windows
@@ -40,7 +44,7 @@ def validate_captcha(user_answer):
     return False
 
 # --- LIMPIEZA AUTOMÁTICA DE ARCHIVOS ---
-def cleanup_file_delayed(filepath, delay=60):
+def cleanup_file_delayed(filepath, download_id, delay=30):
     """Elimina el archivo después de un delay (en segundos)"""
     def delete():
         import time
@@ -48,7 +52,10 @@ def cleanup_file_delayed(filepath, delay=60):
         try:
             if os.path.exists(filepath):
                 os.remove(filepath)
-                print(f"🗑️ Archivo eliminado del servidor: {filepath}")
+                print(f"Archivo eliminado del servidor: {filepath}")
+            # Eliminar del diccionario
+            if download_id in download_files:
+                del download_files[download_id]
         except Exception as e:
             print(f"Error al eliminar archivo: {e}")
     
@@ -102,16 +109,16 @@ def embed_thumbnail_manually(mp3_file, thumbnail_file):
         if result.returncode == 0 and os.path.exists(temp_output):
             os.remove(mp3_file)
             os.rename(temp_output, mp3_file)
-            print(f"✓ Portada incrustada exitosamente en: {mp3_file}")
+            print(f"Portada incrustada exitosamente en: {mp3_file}")
             return True
         else:
-            print(f"✗ Error al incrustar portada: {result.stderr}")
+            print(f"Error al incrustar portada: {result.stderr}")
             if os.path.exists(temp_output):
                 os.remove(temp_output)
             return False
             
     except Exception as e:
-        print(f"✗ Excepción al incrustar portada: {e}")
+        print(f"Excepción al incrustar portada: {e}")
         return False
 
 def embed_thumbnail_to_mp4(mp4_file, thumbnail_file):
@@ -137,16 +144,16 @@ def embed_thumbnail_to_mp4(mp4_file, thumbnail_file):
         if result.returncode == 0 and os.path.exists(temp_output):
             os.remove(mp4_file)
             os.rename(temp_output, mp4_file)
-            print(f"✓ Portada incrustada exitosamente en: {mp4_file}")
+            print(f"Portada incrustada exitosamente en: {mp4_file}")
             return True
         else:
-            print(f"✗ Error al incrustar portada en MP4: {result.stderr}")
+            print(f"Error al incrustar portada en MP4: {result.stderr}")
             if os.path.exists(temp_output):
                 os.remove(temp_output)
             return False
             
     except Exception as e:
-        print(f"✗ Excepción al incrustar portada en MP4: {e}")
+        print(f"Excepción al incrustar portada en MP4: {e}")
         return False
 
 def download_video_yt_dlp(url, output_path):
@@ -177,8 +184,8 @@ def download_video_yt_dlp(url, output_path):
             
             # Si existe la miniatura, incrustarla manualmente
             if thumbnail_file and os.path.exists(mp4_file):
-                print(f"📥 MP4 descargado: {mp4_file}")
-                print(f"🖼️ Miniatura encontrada: {thumbnail_file}")
+                print(f"MP4 descargado: {mp4_file}")
+                print(f"Miniatura encontrada: {thumbnail_file}")
                 
                 # Convertir miniatura a JPG si es necesario
                 if thumbnail_file.endswith('.webp'):
@@ -193,20 +200,20 @@ def download_video_yt_dlp(url, output_path):
                     if os.path.exists(jpg_file):
                         os.remove(thumbnail_file)
                         thumbnail_file = jpg_file
-                        print(f"✓ Miniatura convertida a JPG")
+                        print(f"Miniatura convertida a JPG")
                 
                 # Incrustar la portada
                 if embed_thumbnail_to_mp4(mp4_file, thumbnail_file):
-                    print(f"✓ Portada incrustada exitosamente en MP4")
+                    print(f"Portada incrustada exitosamente en MP4")
                 else:
-                    print(f"✗ No se pudo incrustar la portada en MP4")
+                    print(f"No se pudo incrustar la portada en MP4")
                 
                 # Eliminar archivo de miniatura
                 if os.path.exists(thumbnail_file):
                     os.remove(thumbnail_file)
-                    print(f"✓ Miniatura temporal eliminada")
+                    print(f"Miniatura temporal eliminada")
             else:
-                print(f"⚠️ No se encontró miniatura o archivo MP4")
+                print(f"No se encontró miniatura o archivo MP4")
             
             return mp4_file, title
             
@@ -248,8 +255,8 @@ def download_audio_yt_dlp(url, output_path):
             
             # Si existe la miniatura, incrustarla manualmente
             if thumbnail_file and os.path.exists(mp3_file):
-                print(f"📥 MP3 descargado: {mp3_file}")
-                print(f"🖼️ Miniatura encontrada: {thumbnail_file}")
+                print(f"MP3 descargado: {mp3_file}")
+                print(f"Miniatura encontrada: {thumbnail_file}")
                 
                 # Convertir miniatura a JPG si es necesario
                 if thumbnail_file.endswith('.webp'):
@@ -264,20 +271,20 @@ def download_audio_yt_dlp(url, output_path):
                     if os.path.exists(jpg_file):
                         os.remove(thumbnail_file)
                         thumbnail_file = jpg_file
-                        print(f"✓ Miniatura convertida a JPG")
+                        print(f"Miniatura convertida a JPG")
                 
                 # Incrustar la portada
                 if embed_thumbnail_manually(mp3_file, thumbnail_file):
-                    print(f"✓ Portada incrustada exitosamente")
+                    print(f"Portada incrustada exitosamente")
                 else:
-                    print(f"✗ No se pudo incrustar la portada")
+                    print(f"No se pudo incrustar la portada")
                 
                 # Eliminar archivo de miniatura
                 if os.path.exists(thumbnail_file):
                     os.remove(thumbnail_file)
-                    print(f"✓ Miniatura temporal eliminada")
+                    print(f"Miniatura temporal eliminada")
             else:
-                print(f"⚠️ No se encontró miniatura o archivo MP3")
+                print(f"No se encontró miniatura o archivo MP3")
             
             # Limpiar archivos temporales de audio
             for ext in ['.webm', '.m4a', '.opus']:
@@ -285,9 +292,9 @@ def download_audio_yt_dlp(url, output_path):
                 if os.path.exists(temp_file):
                     try:
                         os.remove(temp_file)
-                        print(f"✓ Archivo temporal eliminado: {temp_file}")
+                        print(f"Archivo temporal eliminado: {temp_file}")
                     except Exception as e:
-                        print(f"✗ No se pudo eliminar {temp_file}: {e}")
+                        print(f"No se pudo eliminar {temp_file}: {e}")
             
             return mp3_file, title
             
@@ -298,6 +305,10 @@ def download_audio_yt_dlp(url, output_path):
 @app.route('/')
 def index():
     return render_template('index.html') 
+
+@app.route('/favicon.ico')
+def favicon():
+    return '', 204
 
 @app.route('/download_mp4', methods=['GET', 'POST'])
 def download_mp4():
@@ -317,20 +328,23 @@ def download_mp4():
         if '?list=' in url: url = url.split('?list=')[0]
             
         try:
-            file_path, title = download_video_yt_dlp(url, DOWNLOAD_FOLDER)
+            file_path, title = download_video_yt_dlp(url, TEMP_FOLDER)
             
-            # Enviar archivo al navegador para descarga
-            response = send_file(
-                file_path,
-                as_attachment=True,
-                download_name=f"{title}.mp4",
-                mimetype='video/mp4'
-            )
+            # Generar ID único para esta descarga
+            download_id = str(uuid.uuid4())
+            download_files[download_id] = {
+                'path': file_path,
+                'name': f"{title}.mp4",
+                'type': 'video/mp4'
+            }
             
-            # Programar eliminación del archivo después de enviarlo
-            cleanup_file_delayed(file_path, delay=10)
+            # Programar eliminación del archivo
+            cleanup_file_delayed(file_path, download_id, delay=30)
             
-            return response
+            # Mostrar mensaje de éxito y ofrecer descarga
+            flash(f"Video '{title}' procesado exitosamente. La descarga comenzará automáticamente.", "success")
+            session['download_id'] = download_id
+            return redirect(url_for('download_mp4'))
             
         except Exception as e:
             flash(f"Error: {str(e)}", "danger")
@@ -338,7 +352,16 @@ def download_mp4():
             return redirect(url_for('download_mp4'))
     
     captcha_question = generate_captcha()
-    return render_template('download_mp4.html', captcha_question=captcha_question)
+    
+    # Si hay una descarga pendiente, iniciarla
+    download_id = session.pop('download_id', None)
+    if download_id and download_id in download_files:
+        return render_template('download_mp4.html', 
+                             captcha_question=captcha_question,
+                             download_ready=True,
+                             download_url=url_for('serve_file', download_id=download_id))
+    
+    return render_template('download_mp4.html', captcha_question=captcha_question, download_ready=False)
 
 @app.route('/download_mp3', methods=['GET', 'POST'])
 def download_mp3():
@@ -357,20 +380,23 @@ def download_mp3():
         if '?list=' in url: url = url.split('?list=')[0]
             
         try:
-            file_path, title = download_audio_yt_dlp(url, DOWNLOAD_FOLDER)
+            file_path, title = download_audio_yt_dlp(url, TEMP_FOLDER)
             
-            # Enviar archivo al navegador para descarga
-            response = send_file(
-                file_path,
-                as_attachment=True,
-                download_name=f"{title}.mp3",
-                mimetype='audio/mpeg'
-            )
+            # Generar ID único para esta descarga
+            download_id = str(uuid.uuid4())
+            download_files[download_id] = {
+                'path': file_path,
+                'name': f"{title}.mp3",
+                'type': 'audio/mpeg'
+            }
             
-            # Programar eliminación del archivo después de enviarlo
-            cleanup_file_delayed(file_path, delay=10)
+            # Programar eliminación del archivo
+            cleanup_file_delayed(file_path, download_id, delay=30)
             
-            return response
+            # Mostrar mensaje de éxito y ofrecer descarga
+            flash(f"Audio '{title}' procesado exitosamente. La descarga comenzará automáticamente.", "success")
+            session['download_id'] = download_id
+            return redirect(url_for('download_mp3'))
             
         except Exception as e:
             flash(f"Error: {str(e)}", "danger")
@@ -378,7 +404,32 @@ def download_mp3():
             return redirect(url_for('download_mp3'))
     
     captcha_question = generate_captcha()
-    return render_template('download_mp3.html', captcha_question=captcha_question)
+    
+    # Si hay una descarga pendiente, iniciarla
+    download_id = session.pop('download_id', None)
+    if download_id and download_id in download_files:
+        return render_template('download_mp3.html', 
+                             captcha_question=captcha_question,
+                             download_ready=True,
+                             download_url=url_for('serve_file', download_id=download_id))
+    
+    return render_template('download_mp3.html', captcha_question=captcha_question, download_ready=False)
+
+@app.route('/serve/<download_id>')
+def serve_file(download_id):
+    """Sirve el archivo para descarga"""
+    if download_id not in download_files:
+        flash("El archivo ya no está disponible o ha expirado.", "warning")
+        return redirect(url_for('index'))
+    
+    file_info = download_files[download_id]
+    
+    return send_file(
+        file_info['path'],
+        as_attachment=True,
+        download_name=file_info['name'],
+        mimetype=file_info['type']
+    )
 
 if __name__ == '__main__':
     app.run(host=Config.HOST, port=Config.PORT, debug=Config.DEBUG)
