@@ -1,24 +1,28 @@
 import os
 import random
 import subprocess
-from flask import Flask, render_template, redirect, url_for, flash, request, session
+import threading
+from flask import Flask, render_template, redirect, url_for, flash, request, session, send_file
 from yt_dlp import YoutubeDL
 from server import Config
 
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# Carpeta de descargas
+# Carpeta de descargas temporal
 DOWNLOAD_FOLDER = os.path.join(os.getcwd(), 'download')
 os.makedirs(DOWNLOAD_FOLDER, exist_ok=True)
 
-# Configurar ruta de FFmpeg
-FFMPEG_PATH = r'C:\ffmpeg\ffmpeg-8.0.1-essentials_build\bin\ffmpeg.exe'
-FFPROBE_PATH = r'C:\ffmpeg\ffmpeg-8.0.1-essentials_build\bin\ffprobe.exe'
-
-if os.path.exists(FFMPEG_PATH):
-    os.environ['FFMPEG_BINARY'] = FFMPEG_PATH
-    os.environ['FFPROBE_BINARY'] = FFPROBE_PATH
+# Configurar ruta de FFmpeg (detecta automáticamente en producción)
+if os.name == 'nt':  # Windows
+    FFMPEG_PATH = r'C:\ffmpeg\ffmpeg-8.0.1-essentials_build\bin\ffmpeg.exe'
+    FFPROBE_PATH = r'C:\ffmpeg\ffmpeg-8.0.1-essentials_build\bin\ffprobe.exe'
+    if os.path.exists(FFMPEG_PATH):
+        os.environ['FFMPEG_BINARY'] = FFMPEG_PATH
+        os.environ['FFPROBE_BINARY'] = FFPROBE_PATH
+else:  # Linux/Mac (producción)
+    FFMPEG_PATH = 'ffmpeg'
+    FFPROBE_PATH = 'ffprobe'
 
 # --- LÓGICA DE CAPTCHA ---
 def generate_captcha():
@@ -34,6 +38,23 @@ def validate_captcha(user_answer):
     except (ValueError, TypeError):
         pass
     return False
+
+# --- LIMPIEZA AUTOMÁTICA DE ARCHIVOS ---
+def cleanup_file_delayed(filepath, delay=60):
+    """Elimina el archivo después de un delay (en segundos)"""
+    def delete():
+        import time
+        time.sleep(delay)
+        try:
+            if os.path.exists(filepath):
+                os.remove(filepath)
+                print(f"🗑️ Archivo eliminado del servidor: {filepath}")
+        except Exception as e:
+            print(f"Error al eliminar archivo: {e}")
+    
+    thread = threading.Thread(target=delete, daemon=True)
+    thread.start()
+
 # -------------------------
 
 def get_common_options(output_path):
@@ -47,7 +68,7 @@ def get_common_options(output_path):
         'noplaylist': True,
         'geo_bypass': True,
         'prefer_ffmpeg': True,
-        'ffmpeg_location': r'C:\ffmpeg\ffmpeg-8.0.1-essentials_build\bin',
+        'ffmpeg_location': FFMPEG_PATH if os.name == 'nt' else None,
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -187,7 +208,7 @@ def download_video_yt_dlp(url, output_path):
             else:
                 print(f"⚠️ No se encontró miniatura o archivo MP4")
             
-            return title
+            return mp4_file, title
             
         except Exception as e:
             print(f"Error durante la descarga de MP4: {e}")
@@ -268,7 +289,7 @@ def download_audio_yt_dlp(url, output_path):
                     except Exception as e:
                         print(f"✗ No se pudo eliminar {temp_file}: {e}")
             
-            return title
+            return mp3_file, title
             
         except Exception as e:
             print(f"Error durante la descarga: {e}")
@@ -296,12 +317,25 @@ def download_mp4():
         if '?list=' in url: url = url.split('?list=')[0]
             
         try:
-            title = download_video_yt_dlp(url, DOWNLOAD_FOLDER)
-            flash(f"Video '{title}' descargado exitosamente con portada incrustada.", "success")
+            file_path, title = download_video_yt_dlp(url, DOWNLOAD_FOLDER)
+            
+            # Enviar archivo al navegador para descarga
+            response = send_file(
+                file_path,
+                as_attachment=True,
+                download_name=f"{title}.mp4",
+                mimetype='video/mp4'
+            )
+            
+            # Programar eliminación del archivo después de enviarlo
+            cleanup_file_delayed(file_path, delay=10)
+            
+            return response
+            
         except Exception as e:
             flash(f"Error: {str(e)}", "danger")
             print(f"DEBUG ERROR: {e}")
-        return redirect(url_for('download_mp4'))
+            return redirect(url_for('download_mp4'))
     
     captcha_question = generate_captcha()
     return render_template('download_mp4.html', captcha_question=captcha_question)
@@ -323,12 +357,25 @@ def download_mp3():
         if '?list=' in url: url = url.split('?list=')[0]
             
         try:
-            title = download_audio_yt_dlp(url, DOWNLOAD_FOLDER)
-            flash(f"Audio '{title}' descargado exitosamente con portada incrustada.", "success")
+            file_path, title = download_audio_yt_dlp(url, DOWNLOAD_FOLDER)
+            
+            # Enviar archivo al navegador para descarga
+            response = send_file(
+                file_path,
+                as_attachment=True,
+                download_name=f"{title}.mp3",
+                mimetype='audio/mpeg'
+            )
+            
+            # Programar eliminación del archivo después de enviarlo
+            cleanup_file_delayed(file_path, delay=10)
+            
+            return response
+            
         except Exception as e:
             flash(f"Error: {str(e)}", "danger")
             print(f"DEBUG ERROR: {e}")
-        return redirect(url_for('download_mp3'))
+            return redirect(url_for('download_mp3'))
     
     captcha_question = generate_captcha()
     return render_template('download_mp3.html', captcha_question=captcha_question)
