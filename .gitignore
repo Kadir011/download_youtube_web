@@ -19,31 +19,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Ignore los archivos de configuración de archivos de imagen
-*.jpg
-*.jpeg
-*.png
-*.gif
-*.ico
+# Ignore archivos temporales del servidor
+temp/
 
-# Ignore los archivos de configuración de archivos de audio
-*.mp3
-*.wav
-*.ogg
-*.flac
-
-# Ignore los archivos de configuración de archivos de video
-*.mp4
-*.mov
-*.avi
-*.wmv
-*.flv
-*.webm
-
-# Ignore la carpeta "download" para almacenar los archivos descargados
-download/
-
-
-
-
-
+# Variables de entorno
+.env
