@@ -13,6 +13,8 @@ else:  # Linux/Mac
 def get_common_options(output_path):
     """Opciones base para yt-dlp"""
     return {
+        # 'restrictfilenames': True evita caracteres como '|' que rompen Windows
+        'restrictfilenames': True,
         'outtmpl': f"{output_path}/%(title)s.%(ext)s",
         'nocheckcertificate': True,
         'ignoreerrors': False,
@@ -87,14 +89,20 @@ def process_download(url, output_path, is_audio=False):
         info = ydl.extract_info(url, download=True)
         title = info.get('title', 'Título desconocido')
         
-        base_name = os.path.join(output_path, title)
+        # --- CORRECCIÓN CRÍTICA ---
+        # No usamos 'title' directamente para la ruta porque puede tener caracteres prohibidos (| / \ etc)
+        # Usamos prepare_filename para obtener el nombre real y sanitizado que yt-dlp usó en disco.
+        temp_filename = ydl.prepare_filename(info)
+        base_name = os.path.splitext(temp_filename)[0]
+        
         final_file = base_name + ('.mp3' if is_audio else '.mp4')
         
-        # Buscar miniatura
+        # Buscar miniatura (usando el nombre base sanitizado)
         thumbnail_file = None
         for ext in ['.webp', '.jpg', '.png']:
-            if os.path.exists(base_name + ext):
-                thumbnail_file = base_name + ext
+            possible_thumb = base_name + ext
+            if os.path.exists(possible_thumb):
+                thumbnail_file = possible_thumb
                 break
         
         # Procesar miniatura si existe
