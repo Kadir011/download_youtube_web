@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: youtube-downloader
+    env: python
+    region: oregon
+    buildCommand: chmod +x render-build.sh && ./render-build.sh
+    startCommand: gunicorn run:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: SECRET_KEY
+        generateValue: true
+      - key: FLASK_ENV
+        value: production
+    autoDeploy: true

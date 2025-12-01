@@ -1,5 +1,6 @@
 # Ignore los archivos de configuración de virtualenv
 venv/
+env/
 
 # Ignore los archivos de configuración de PyCharm
 .idea/
@@ -21,6 +22,26 @@ __pycache__/
 
 # Ignore archivos temporales del servidor
 temp/
+*.mp4
+*.mp3
+*.webm
+*.m4a
 
 # Variables de entorno
 .env
+.env.local
+.env.production
+.env.example
+
+# Logs
+*.log
+logs/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Archivos de distribución
+dist/
+build/
+*.egg-info/

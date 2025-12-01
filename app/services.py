@@ -7,13 +7,12 @@ if os.name == 'nt':  # Windows
     FFMPEG_PATH = r'C:\ffmpeg\ffmpeg-8.0.1-essentials_build\bin\ffmpeg.exe'
     if os.path.exists(FFMPEG_PATH):
         os.environ['FFMPEG_BINARY'] = FFMPEG_PATH
-else:  # Linux/Mac
+else:  # Linux/Mac (Render usa Linux)
     FFMPEG_PATH = 'ffmpeg'
 
 def get_common_options(output_path):
     """Opciones base para yt-dlp"""
     return {
-        # 'restrictfilenames': True evita caracteres como '|' que rompen Windows
         'restrictfilenames': True,
         'outtmpl': f"{output_path}/%(title)s.%(ext)s",
         'nocheckcertificate': True,
@@ -23,7 +22,7 @@ def get_common_options(output_path):
         'noplaylist': True,
         'geo_bypass': True,
         'prefer_ffmpeg': True,
-        'ffmpeg_location': FFMPEG_PATH if os.name == 'nt' else None,
+        'ffmpeg_location': FFMPEG_PATH,
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -89,15 +88,13 @@ def process_download(url, output_path, is_audio=False):
         info = ydl.extract_info(url, download=True)
         title = info.get('title', 'Título desconocido')
         
-        # --- CORRECCIÓN CRÍTICA ---
-        # No usamos 'title' directamente para la ruta porque puede tener caracteres prohibidos (| / \ etc)
-        # Usamos prepare_filename para obtener el nombre real y sanitizado que yt-dlp usó en disco.
+        # Usamos prepare_filename para obtener el nombre real y sanitizado
         temp_filename = ydl.prepare_filename(info)
         base_name = os.path.splitext(temp_filename)[0]
         
         final_file = base_name + ('.mp3' if is_audio else '.mp4')
         
-        # Buscar miniatura (usando el nombre base sanitizado)
+        # Buscar miniatura
         thumbnail_file = None
         for ext in ['.webp', '.jpg', '.png']:
             possible_thumb = base_name + ext
