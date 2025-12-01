@@ -1,109 +1,166 @@
-/* Fondo y texto general */
+:root {
+    --glass-bg: rgba(255, 255, 255, 0.85);
+    --glass-border: rgba(255, 255, 255, 0.5);
+    --body-bg: #f0f2f5;
+    --text-color: #212529;
+    --card-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+}
+
+[data-bs-theme="dark"] {
+    --glass-bg: rgba(33, 37, 41, 0.85);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --body-bg: #121212;
+    --text-color: #f8f9fa;
+    --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+}
+
 body {
-    background-color: #f8f9fa;
-    color: #333;
-    font-family: 'Arial', sans-serif;
+    background-color: var(--body-bg);
+    color: var(--text-color);
+    transition: background-color 0.3s ease, color 0.3s ease;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background-image: radial-gradient(circle at 10% 20%, rgb(242, 242, 242) 0%, var(--body-bg) 90%);
+    min-height: 100vh;
 }
 
-/* Títulos */
-h1, h2 {
-    color: #007bff;
-    text-align: center;
-    margin-bottom: 20px;
+[data-bs-theme="dark"] body {
+    background-image: radial-gradient(circle at 10% 20%, rgb(40, 40, 40) 0%, var(--body-bg) 90%);
 }
 
-/* Formulario */
-form {
-    margin: 0 auto;
-    padding: 20px;
-    background: #ffffff;
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    width: 100%;
-    max-width: 500px;  /* Limitar el ancho máximo */
+/* Glassmorphism Effect */
+.glass-effect {
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--glass-border);
+    z-index: 1000;
 }
 
-/* Alertas */
-.alert {
-    font-size: 1.1rem;
-    margin-top: 20px;
-    padding: 10px;
-    text-align: center;
-    border-radius: 5px;
+.glass-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border) !important;
+    box-shadow: var(--card-shadow);
+    border-radius: 1rem;
 }
 
-/* Botones */
-button {
-    padding: 10px;
-    font-size: 1rem;
-    border-radius: 5px;
-    border: none;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
+/* Animations */
+.hover-scale {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-/* Botón de descarga de video */
-button[type="submit"].btn-primary {
-    background-color: #007bff;
-    color: #fff;
+/* Solo aplicar efecto hover en dispositivos que tienen puntero (mouse) */
+@media (hover: hover) {
+    .hover-scale:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
 }
 
-button[type="submit"].btn-primary:hover {
-    background-color: #0056b3;
+.icon-circle {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
 }
 
-/* Botón de descarga MP3 */
-button[type="submit"].btn-success {
-    background-color: #28a745;
-    color: #fff;
+/* Inputs form styling */
+.form-control, .form-select {
+    padding: 0.8rem 1rem;
+    border-radius: 0.8rem;
+    background-color: rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(0,0,0,0.1);
 }
 
-button[type="submit"].btn-success:hover {
-    background-color: #218838;
+[data-bs-theme="dark"] .form-control, 
+[data-bs-theme="dark"] .form-select {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: var(--text-color);
 }
 
-/* Barra de navegación */
-.navbar-brand {
-    font-weight: bold;
-    font-size: 1.5rem;
+.form-control:focus, .form-select:focus {
+    box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.15);
+    background-color: rgba(255, 255, 255, 0.9);
+    border-color: #86b7fe;
 }
 
-/* Ajustes de margen y padding en el body */
-.container {
-    margin-top: 50px;
+[data-bs-theme="dark"] .form-control:focus, 
+[data-bs-theme="dark"] .form-select:focus {
+    background-color: rgba(0, 0, 0, 0.5);
+    border-color: #0d6efd;
 }
 
-/* Formulario input */
-input[type="url"] {
-    width: 100%;
-    padding: 10px;
-    font-size: 1rem;
-    border: 1px solid #ccc;
-    border-radius: 5px;
+/* --- RESPONSIVE & MOBILE DESIGN --- */
+
+/* Ajustes para Tablets y Móviles grandes (menor a 992px) */
+@media (max-width: 992px) {
+    .container {
+        max-width: 95%;
+    }
 }
 
-input[type="url"]:focus {
-    outline: none;
-    border-color: #007bff;
-    box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+/* Ajustes para Móviles (menor a 768px) */
+@media (max-width: 768px) {
+    /* Reducir el padding interno de las tarjetas para ganar espacio */
+    .glass-card {
+        padding: 1.5rem !important; 
+    }
+    
+    .card-body {
+        padding: 0 !important;
+    }
+
+    /* Texto de títulos más pequeño para que no ocupe toda la pantalla */
+    h1.display-4 {
+        font-size: 2.5rem;
+    }
+    
+    h2 {
+        font-size: 1.75rem;
+    }
+
+    /* Ajustar tamaño del icono circular */
+    .icon-circle {
+        width: 60px;
+        height: 60px;
+    }
+    
+    .icon-circle i {
+        font-size: 1.5rem !important;
+    }
 }
 
-/* Mejorar el diseño para pantallas pequeñas */
+/* Ajustes para Móviles Pequeños (menor a 576px) */
 @media (max-width: 576px) {
-    form {
-        padding: 15px;
+    /* Navbar brand más pequeño */
+    .navbar-brand {
+        font-size: 1.3rem;
+        margin-right: 0;
     }
 
-    button {
-        font-size: 0.9rem;
+    /* Botones de acción principales ocupan todo el ancho y se apilan */
+    .d-flex.justify-content-center.gap-3.flex-wrap a.btn {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+
+    /* Inputs: tamaño de fuente 16px evita que iOS haga zoom automático al escribir */
+    .form-control, .form-select {
+        font-size: 16px;
+    }
+
+    /* Ajuste de márgenes globales */
+    .container.mt-5 {
+        margin-top: 2rem !important;
+    }
+    
+    .mt-4 {
+        margin-top: 1.5rem !important;
     }
 }
-
-
-
-
-
-
-
-
