@@ -37,4 +37,10 @@
         </div>
     </div>
 </div>
+{% if download_ready %}
+<script>
+    // Iniciar descarga automáticamente
+    window.location.href = "{{ download_url }}";
+</script>
+{% endif %}
 {% endblock %}
