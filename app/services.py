@@ -1,33 +1,35 @@
 import os
 import subprocess
-import tempfile
 from yt_dlp import YoutubeDL
 
 # --- CONFIGURACIÓN DE FFMPEG ---
-# Detectar si estamos en Render (Linux) o Local (Windows)
-if os.name == 'nt':  # Windows Local
-    FFMPEG_PATH = r'C:\ffmpeg\ffmpeg-8.0.1-essentials_build\bin\ffmpeg.exe'
-else:  # Render / Linux
-    # Buscamos en la carpeta local donde lo descargó render-build.sh
-    base_dir = os.getcwd()
+def get_ffmpeg_path():
+    """Detecta la ruta de FFmpeg dependiendo del entorno"""
+    # 1. Entorno Local (Windows)
+    if os.name == 'nt':
+        return r'C:\ffmpeg\ffmpeg-8.0.1-essentials_build\bin\ffmpeg.exe'
+    
+    # 2. Entorno Render (Linux)
+    # En Render, el script de build creó la carpeta en la raíz del proyecto
+    base_dir = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
     local_ffmpeg = os.path.join(base_dir, 'ffmpeg_bin', 'ffmpeg')
     
     if os.path.exists(local_ffmpeg):
-        FFMPEG_PATH = local_ffmpeg
-    else:
-        # Fallback al sistema global (por si acaso)
-        FFMPEG_PATH = 'ffmpeg'
+        # Asegurar permisos de ejecución (importante en Linux)
+        try:
+            os.chmod(local_ffmpeg, 0o755)
+        except:
+            pass
+        return local_ffmpeg
+        
+    # 3. Fallback (por si acaso)
+    return 'ffmpeg'
 
-# Asegurar permisos de ejecución en Linux
-if os.name != 'nt' and os.path.exists(FFMPEG_PATH):
-    try:
-        os.chmod(FFMPEG_PATH, 0o755)
-    except:
-        pass
+FFMPEG_PATH = get_ffmpeg_path()
 
-def get_common_options(output_path, cookie_file_path=None):
+def get_common_options(output_path):
     """Opciones base para yt-dlp"""
-    opts = {
+    return {
         'restrictfilenames': True,
         'outtmpl': f"{output_path}/%(title)s.%(ext)s",
         'nocheckcertificate': True,
@@ -38,20 +40,17 @@ def get_common_options(output_path, cookie_file_path=None):
         'geo_bypass': True,
         'ffmpeg_location': FFMPEG_PATH,
         
-        # Estrategia de Cliente (iOS es robusto)
+        # --- ESTRATEGIA: CLIENTE ANDROID ---
+        # Android suele ser más permisivo en servidores Cloud que iOS o Web.
         'extractor_args': {
             'youtube': {
-                'player_client': ['ios'],
+                'player_client': ['android'],
                 'player_skip': ['webpage', 'configs'],
             }
         },
+        # User Agent genérico de Android para reforzar la máscara
+        'user_agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
     }
-    
-    # Si tenemos cookies, las inyectamos
-    if cookie_file_path:
-        opts['cookiefile'] = cookie_file_path
-        
-    return opts
 
 def embed_thumbnail_manually(media_file, thumbnail_file, is_audio=True):
     """Incrusta la miniatura usando FFmpeg"""
@@ -84,70 +83,45 @@ def embed_thumbnail_manually(media_file, thumbnail_file, is_audio=True):
 def process_download(url, output_path, is_audio=False):
     """Función principal de descarga"""
     
-    # 1. GESTIÓN DE COOKIES (Bypass antibot)
-    cookie_file = None
-    cookies_content = os.environ.get('COOKIES_CONTENT')
+    options = get_common_options(output_path)
+    options['writethumbnail'] = True
     
-    if cookies_content:
-        # Crear archivo temporal con las cookies
-        cookie_file = tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.txt')
-        cookie_file.write(cookies_content)
-        cookie_file.close()
-        print("INFO: Cookies cargadas correctamente.")
+    if is_audio:
+        options['format'] = 'bestaudio/best'
+        options['postprocessors'] = [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': '192'}]
+    else:
+        options['format'] = 'best[ext=mp4]/best'
+        options['merge_output_format'] = 'mp4'
 
-    try:
-        # 2. Configurar opciones
-        cookie_path = cookie_file.name if cookie_file else None
-        options = get_common_options(output_path, cookie_path)
-        options['writethumbnail'] = True
+    with YoutubeDL(options) as ydl:
+        info = ydl.extract_info(url, download=True)
         
-        if is_audio:
-            options['format'] = 'bestaudio/best'
-            options['postprocessors'] = [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': '192'}]
-        else:
-            options['format'] = 'best[ext=mp4]/best'
-            options['merge_output_format'] = 'mp4'
-
-        # 3. Descargar
-        with YoutubeDL(options) as ydl:
-            info = ydl.extract_info(url, download=True)
-            
-            # Obtener nombres de archivo
-            temp_filename = ydl.prepare_filename(info)
-            base_name = os.path.splitext(temp_filename)[0]
-            final_file = base_name + ('.mp3' if is_audio else '.mp4')
-            
-            # Procesar miniatura
-            thumbnail_file = None
-            for ext in ['.webp', '.jpg', '.png']:
-                possible_thumb = base_name + ext
-                if os.path.exists(possible_thumb):
-                    thumbnail_file = possible_thumb
-                    break
-            
-            if thumbnail_file and os.path.exists(final_file):
-                # Convertir webp a jpg si es necesario
-                if thumbnail_file.endswith('.webp'):
-                    jpg_file = base_name + '.jpg'
-                    subprocess.run([FFMPEG_PATH, '-i', thumbnail_file, '-y', jpg_file], capture_output=True)
-                    if os.path.exists(jpg_file):
-                        os.remove(thumbnail_file)
-                        thumbnail_file = jpg_file
-                
-                embed_thumbnail_manually(final_file, thumbnail_file, is_audio)
-                if os.path.exists(thumbnail_file):
+        temp_filename = ydl.prepare_filename(info)
+        base_name = os.path.splitext(temp_filename)[0]
+        final_file = base_name + ('.mp3' if is_audio else '.mp4')
+        
+        # Procesar miniatura
+        thumbnail_file = None
+        for ext in ['.webp', '.jpg', '.png']:
+            possible_thumb = base_name + ext
+            if os.path.exists(possible_thumb):
+                thumbnail_file = possible_thumb
+                break
+        
+        if thumbnail_file and os.path.exists(final_file):
+            if thumbnail_file.endswith('.webp'):
+                jpg_file = base_name + '.jpg'
+                subprocess.run([FFMPEG_PATH, '-i', thumbnail_file, '-y', jpg_file], capture_output=True)
+                if os.path.exists(jpg_file):
                     os.remove(thumbnail_file)
+                    thumbnail_file = jpg_file
+            
+            embed_thumbnail_manually(final_file, thumbnail_file, is_audio)
+            if os.path.exists(thumbnail_file):
+                os.remove(thumbnail_file)
 
-            # Limpieza extra
-            for ext in ['.webm', '.m4a', '.opus']:
-                if os.path.exists(base_name + ext): os.remove(base_name + ext)
+        # Limpieza de archivos temporales de yt-dlp
+        for ext in ['.webm', '.m4a', '.opus']:
+            if os.path.exists(base_name + ext): os.remove(base_name + ext)
 
-            return final_file, info.get('title', 'Video')
-
-    finally:
-        # 4. Limpiar archivo de cookies
-        if cookie_file and os.path.exists(cookie_file.name):
-            try:
-                os.remove(cookie_file.name)
-            except:
-                pass
+        return final_file, info.get('title', 'Video')
